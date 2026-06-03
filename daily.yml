@@ -6,6 +6,9 @@ on:
     - cron: '30 6 * * 1-5'
   workflow_dispatch:  # 允許手動觸發測試
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
 jobs:
   run-signal:
     runs-on: ubuntu-latest
