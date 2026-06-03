@@ -9,15 +9,46 @@ from .config import CONFIG, TELEGRAM_API
 
 
 def send_telegram(text: str):
-    url = TELEGRAM_API.format(token=os.environ["TELEGRAM_BOT_TOKEN"])
-    payload = {
-        "chat_id": os.environ["TELEGRAM_CHAT_ID"],
-        "text": text,
-        "parse_mode": "Markdown",
+    """
+    保留原本的函式名稱，但底層完全切換為 LINE Messaging API (官方帳號)
+    """
+    # 1. LINE Messaging API 的標準推播網址
+    url = "https://api.line.me/v2/bot/message/push"
+    
+    # 2. 讀取環境變數 (直接沿用你原本的變數名稱)
+    line_access_token = os.environ.get("TELEGRAM_BOT_TOKEN")
+    line_user_id = os.environ.get("TELEGRAM_CHAT_ID")
+    
+    if not line_access_token or not line_user_id:
+        print("錯誤: 找不到 LINE 憑證環境變數", file=sys.stderr)
+        return
+
+    # 3. LINE Messaging API 所需的 Headers
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {line_access_token}"
     }
-    r = requests.post(url, json=payload, timeout=10)
-    if not r.ok:
-        print(f"Telegram 送失敗: {r.text}", file=sys.stderr)
+    
+    # 4. LINE 規定的 JSON 訊息格式
+    payload = {
+        "to": line_user_id,
+        "messages": [
+            {
+                "type": "text",
+                "text": text
+            }
+        ]
+    }
+    
+    try:
+        # 5. 使用 json= 發送 POST 請求
+        r = requests.post(url, headers=headers, json=payload, timeout=10)
+        
+        if not r.ok:
+            print(f"LINE 機器人發送失敗: {r.text}", file=sys.stderr)
+            
+    except requests.exceptions.RequestException as e:
+        print(f"LINE 機器人連線異常: {e}", file=sys.stderr)
 
 
 def _trend_emoji(chg: float) -> str:
