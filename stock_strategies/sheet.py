@@ -1,5 +1,6 @@
 import os
 import json
+import math  # 💡 引入 math 用來檢查 inf 與 nan
 
 import gspread
 from google.oauth2.service_account import Credentials
@@ -29,6 +30,14 @@ def read_watchlist() -> list[dict]:
     return enabled
 
 
+def clean_val(val):
+    """💡 安全小幫手：檢查數值是否為 inf, -inf 或 NaN，如果是就換成 0"""
+    if isinstance(val, float):
+        if math.isnan(val) or math.isinf(val):
+            return 0
+    return val
+
+
 def append_signals(signals: list[dict]):
     """把結果寫回 Signals 分頁"""
     if not signals:
@@ -48,21 +57,23 @@ def append_signals(signals: list[dict]):
     rows = []
     for s in signals:
         c = s.get("components", {})
+        
+        # 💡 在寫入前，透過 clean_val 確保所有可能計算出浮點數的欄位都很乾淨
         rows.append([
             s.get("date", ""),
             s.get("stock_id", ""),
             s.get("name", ""),
             s.get("action", ""),
-            s.get("signal_score", ""),
-            s.get("entry_price", ""),
-            s.get("stop_loss_price", ""),
-            s.get("target_price", ""),
-            s.get("risk_reward_ratio", ""),
-            s.get("position_size_pct", ""),
-            c.get("backtest_winrate", ""),
-            c.get("backtest_samples", ""),
-            ", ".join(c.get("tech_signals", [])),
-            " / ".join(s.get("risk_notes", [])),
+            clean_val(s.get("signal_score", "")),
+            clean_val(s.get("entry_price", "")),
+            clean_val(s.get("stop_loss_price", "")),
+            clean_val(s.get("target_price", "")),
+            clean_val(s.get("risk_reward_ratio", "")),
+            clean_val(s.get("position_size_pct", "")),
+            clean_val(c.get("backtest_winrate", "")),
+            clean_val(c.get("backtest_samples", "")),
+            ", ".join(c.get("tech_signals", [])) if isinstance(c.get("tech_signals"), list) else "",
+            " / ".join(s.get("risk_notes", [])) if isinstance(s.get("risk_notes"), list) else "",
         ])
     ws.append_rows(rows)
 
@@ -191,5 +202,6 @@ def write_performance(records: list[dict]):
     if not records:
         return
 
-    rows = [[r.get(h, "") for h in PERFORMANCE_HEADERS] for r in records]
+    # 💡 同理，在績效回報表寫入時，也對所有數值進行 clean_val 防呆過濾
+    rows = [[clean_val(r.get(h, "")) for h in PERFORMANCE_HEADERS] for r in records]
     ws.append_rows(rows)
